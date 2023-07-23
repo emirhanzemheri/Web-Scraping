@@ -47,7 +47,7 @@ def scrapting_kitap_yurdu(db):
         collection = db['kitapyurdu']
         collection.insert_many(kitapyurdu)
 
-# Bağlantıyı kapatın
+
         
 
     except:

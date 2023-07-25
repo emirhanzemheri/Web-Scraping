@@ -5,9 +5,6 @@ import threading
 
 Last_Page               = 1373 #Range of kitap yurdus for all books page
 TypeOfBook              = {"edebiyat": 526,"cocuk-kitaplari":519,"tarih-kitaplari":339,"saglik":63,"yemek-kitaplari":8} # All sections in kitap sepeti for iterate all kind of books with range.
-kitapyurdu_datas        = [] #initially empty list for collecting datas and load database for kitapyurdu          
-kitapsepeti_datas       = [] #initially empty list for collecting datas and load database for kitapsepeti
-
 
 def crop_string(text): #for crop unexpected space character
     text         = text.strip()
@@ -18,6 +15,7 @@ def crop_string(text): #for crop unexpected space character
 def scraping_kitap_yurdu():
     # Start explorer with web-driver
     try:
+        collection_kitapyurdu = db['kitapyurdu'] #  create collection with name 'kitapyurdu'
         driver_kitapyurdu = webdriver.Chrome() #If the selenium version you are using is v4.6.0 or above then you don't really have to set the driver.exe path.
         for page_number in range(1,Last_Page+1): #iterate in all books pages (1-1373) with many 100 books per page.
             #go to all books pages with url
@@ -29,22 +27,21 @@ def scraping_kitap_yurdu():
                 publisher  = book.find_element("xpath",'.//div[@class="publisher"]/span/a/span').get_attribute("innerHTML")
                 author     = book.find_element("xpath",'.//div[@class="author compact ellipsis"]').text
                 price      = crop_string(book.find_element("xpath",'.//div[@class="price"]').text)+" TL"
-                data_book       = {'title':book_title,'author':author,'publisher':publisher,'price':price}
-                kitapyurdu_datas.append(data_book)
-                
+                data_book  = {'title':book_title,'author':author,'publisher':publisher,'price':price}
+                collection_kitapyurdu.insert_one(data_book) #insert datas to collection
         
-        collection = db['kitapyurdu'] # When finished collect data create collection with name 'kitapyurdu'
-        collection.insert_many(kitapyurdu_datas) #insert datas to collection
+        
+        
 
     except:
-        print("Error occured in kitap sepeti sayfa:"+page_number+"Infos:"+data_book)    
+        print("Error occured in kitap sepeti sayfa:"+str(page_number)+"Infos:"+str(data_book))    
 
     driver_kitapyurdu.quit() # Quit chorme driver when finished kitapyurdu scraping
     
 def scraping_kitapsepeti():
     try:
+        collection_kitapsepeti = db['kitapsepeti'] # When finished collect data create collection with name 'kitapsepeti'
         driver_2 = webdriver.Chrome() #open chrome driver for scraping kitapsepeti
-        
         for key in TypeOfBook.keys(): #iterate in kitapsepeti type of books
             driver_2.get("https://www.kitapsepeti.com/"+key) #go to type of book page
             for page_num in range(1,TypeOfBook[key]+1):
@@ -64,35 +61,24 @@ def scraping_kitapsepeti():
                         book_price     = book_infos[2]
 
                     data_book = {'title':book_title,'author':book_author,'publisher':book_publisher,'price':book_price}
-                    kitapsepeti_datas.append(data_book)
-                    
-            collection = db['kitapsepeti'] # When finished collect data create collection with name 'kitapsepeti'
-            collection.insert_many(kitapsepeti_datas) 
+                    collection_kitapsepeti.insert_one(data_book)
+                     
     except:
-        print("Error occured in kitap sepeti sayfa:"+page_num+"Infos:"+book_infos)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-        collection = db['kitapsepeti']   # Record datas before error occured. 
-        collection.insert_many(kitapsepeti_datas) #insert datas to collection
-    
+        print("Error occured in kitap sepeti sayfa:"+str(page_num)+"Infos:"+str(book_infos))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+        
     driver_2.quit() # Quit chorme driver when finished kitapsepeti scraping
     
-
-
 
 
 if __name__=="__main__":
     mongo_client = MongoClient('localhost', 27017) # connect local host MongoDB
     db = mongo_client['smartmaple']   # create data base 'smartmaple'
 
-
-
-
     thread1 = threading.Thread(target=scraping_kitap_yurdu)#Create two thread for asynchrons web scraping same time for www.kitapsepeti.com and www.kitapyurdu.com
     thread2 = threading.Thread(target=scraping_kitapsepeti)
     
-    
     thread1.start()# Start threads same time and waits until finish
     thread2.start()
-
 
     thread1.join()
     thread2.join()
